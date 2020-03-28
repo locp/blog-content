@@ -1,0 +1,69 @@
+#!/bin/bash
+#############################################################################
+# A script that wraps SSL to encrypt/decrypt files with AES-256.
+#
+# SYNOPSIS:
+#
+#   aes256 -d | -e -f file -p password
+#############################################################################
+
+PROG=$( basename $0 )
+
+function decrypt_file {
+  in="$file"
+  out=$( echo $in | sed 's/.aes256$//' )
+  echo "INFO: Decrypting $in to $out."
+  openssl enc -d -aes-256-cbc -in $in -k "$password" -out $out && rm $in
+}
+
+function encrypt_file {
+  in="$file"
+  out="${in}.aes256"
+  echo "INFO: Encrypting $in to $out."
+  openssl enc -aes-256-cbc -salt -in $in -k "$password" -out $out && rm $in
+}
+
+function usage_message {
+  if [ ! -z "$1" ]; then
+    echo "ERROR: $1"
+    echo
+  fi
+
+  echo "usage: ${PROG} -d | -e -f file -p password"
+  echo
+  echo "  Where:"
+  echo "    -d Indicates the file should be decrypted."
+  echo "    -e Indicates the file should be encrypted."
+  echo "    -f The file to have the action carried out against."
+  echo "    -p Specifies the password to encypt/decrypt the file."
+  exit 2
+}
+
+decrypt=0
+encrypt=0
+file=""
+password=""
+
+while getopts "def:p:" opt; do
+  case "$opt" in
+    d) decrypt=1 ;;
+    e) encrypt=1 ;;
+    f) file="${OPTARG}" ;;
+    p) password="${OPTARG}" ;;
+    *) usage_message ;;
+  esac
+done
+
+if [[ $encrypt == 1 && $decrypt == 1 ]]; then
+  usage_message "d and e flags are mutually exclusive"
+elif [[ $encrypt == 0 && $decrypt == 0 ]]; then
+  usage_message "Specify if to encrypt or decrypt the file."
+elif [ -z "$file" ]; then
+  usage_message "Please specify a file."
+elif [ -z "$password" ]; then
+  usage_message "Password required."
+elif [[ $decrypt == 1 ]]; then
+  decrypt_file
+elif [[ $encrypt == 1 ]]; then
+  encrypt_file
+fi
